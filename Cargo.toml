@@ -1,0 +1,36 @@
+[package]
+name = "vic"
+version = "1.0.0"
+edition = "2021"
+authors = ["tpvy"]
+description = "Lightweight cross-platform remote workspace assistant and mobile web dashboard over Tailscale"
+homepage = "https://vic-cli.phuongvy.xyz"
+repository = "https://github.com/tpvy/vic-cli"
+license = "MIT"
+readme = "README.md"
+keywords = ["tailscale", "remote-workspace", "cli", "dashboard", "sysadmin"]
+categories = ["command-line-utilities", "network-programming"]
+
+[dependencies]
+tiny_http = "0.12"
+chrono = "0.4"
+ureq = "2.10"
+sha2 = "0.10"
+hex = "0.4"
+tungstenite = { version = "0.21", default-features = false, features = ["handshake"] }
+
+[[bin]]
+name = "vic"
+path = "src/main.rs"
+
+[[bin]]
+name = "media"
+path = "modules_src/media.rs"
+
+[[bin]]
+name = "top"
+path = "modules_src/top.rs"
+
+[[bin]]
+name = "mouse"
+path = "modules_src/mouse.rs"
