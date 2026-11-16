@@ -117,13 +117,13 @@ function Download-StringSafe($targetUrl) {
     return $null
 }
 
-$KnownReleaseSha = "f9205ae0ccb45b0bf4340ccbaf34c769a42cabb83a256df1f127ee3f71505339"
+$KnownReleaseSha = "28b81ddb635b65db34a7e60753bb1084dfc1be2c10decba3a1ff8548d3345642"
 
 # Fetch expected SHA256 checksum (with cache-busting timestamp to prevent stale cache on repeated runs)
 $nowTs = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-$shaContent = Download-StringSafe "$PrimaryShaUrl?t=$nowTs"
+$shaContent = Download-StringSafe "${PrimaryShaUrl}?t=${nowTs}"
 if (-not $shaContent) {
-    $shaContent = Download-StringSafe "$TagShaUrl?t=$nowTs"
+    $shaContent = Download-StringSafe "${TagShaUrl}?t=${nowTs}"
 }
 
 $expectedSha = ""
