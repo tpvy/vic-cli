@@ -45,68 +45,103 @@ BIN_URL="$RELEASE_BASE/$BIN_NAME"
 
 mkdir -p "$VIC_DIR"/{bin,modules,archive,share}
 
-if [ "$LANG_CODE" = "en" ]; then
-    echo "[*] Trying pre-built binary ($BIN_NAME)..."
-else
-    echo "[*] Đang thử tải bản build sẵn ($BIN_NAME)..."
+KNOWN_LINUX_X86_64_SHA="d1365485445e57612ee7adf73cb474d33afb51c4135ac8140a2336596883f6de"
+KNOWN_LINUX_AARCH64_SHA="d2baebd98913b46333b699ad6b4c04f3a91391100c90253a770fd09a8313d4f5"
+KNOWN_MACOS_AARCH64_SHA="8ed9c9f21416b748972fbb04d0471109b5a1143db9bfe2daccd452facb11ef1f"
+
+# Get expected SHA with cache-busting timestamp
+EXPECTED_SHA=""
+SHA_TMP="$VIC_DIR/bin/vic.sha256.tmp.$$"
+if curl -fsSL "${BIN_URL}.sha256?t=$(date +%s)" -o "$SHA_TMP" 2>/dev/null && [ -s "$SHA_TMP" ]; then
+    EXPECTED_SHA=$(awk '{print $1}' "$SHA_TMP" | tr '[:upper:]' '[:lower:]')
+    rm -f "$SHA_TMP"
 fi
 
-if curl -fsSL "$BIN_URL" -o "$VIC_DIR/bin/vic" 2>/dev/null; then
-    if ! curl -fsSL "$BIN_URL.sha256" -o "$VIC_DIR/bin/vic.sha256" 2>/dev/null || [ ! -s "$VIC_DIR/bin/vic.sha256" ]; then
-        if [ "$LANG_CODE" = "en" ]; then
-            echo "[-] SECURITY ERROR: Missing .sha256 checksum file from release! Installation aborted."
-        else
-            echo "[-] LỖI BẢO MẬT: Không tìm thấy tệp mã băm .sha256 trên bản phát hành! Hủy cài đặt để bảo đảm an toàn."
-        fi
-        rm -f "$VIC_DIR/bin/vic" "$VIC_DIR/bin/vic.sha256"
-        exit 1
+if [ -z "$EXPECTED_SHA" ] || [ ${#EXPECTED_SHA} -ne 64 ]; then
+    if [ "$TARGET_OS" = "linux" ] && [ "$ARCH_SUFFIX" = "x86_64" ]; then
+        EXPECTED_SHA="$KNOWN_LINUX_X86_64_SHA"
+    elif [ "$TARGET_OS" = "linux" ]; then
+        EXPECTED_SHA="$KNOWN_LINUX_AARCH64_SHA"
+    elif [ "$TARGET_OS" = "macos" ]; then
+        EXPECTED_SHA="$KNOWN_MACOS_AARCH64_SHA"
     fi
+fi
 
-    EXPECTED_SHA=$(awk '{print $1}' "$VIC_DIR/bin/vic.sha256" | tr '[:upper:]' '[:lower:]')
-    rm -f "$VIC_DIR/bin/vic.sha256"
-    ACTUAL_SHA=""
+# 1. Idempotency Check: If already installed and checksum matches, skip re-downloading!
+SKIP_DOWNLOAD=false
+if [ -f "$VIC_DIR/bin/vic" ] && [ -n "$EXPECTED_SHA" ]; then
+    CURRENT_SHA=""
     if command -v sha256sum >/dev/null 2>&1; then
-        ACTUAL_SHA=$(sha256sum "$VIC_DIR/bin/vic" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+        CURRENT_SHA=$(sha256sum "$VIC_DIR/bin/vic" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
     elif command -v shasum >/dev/null 2>&1; then
-        ACTUAL_SHA=$(shasum -a 256 "$VIC_DIR/bin/vic" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
-    else
+        CURRENT_SHA=$(shasum -a 256 "$VIC_DIR/bin/vic" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+    fi
+    if [ "$CURRENT_SHA" = "$EXPECTED_SHA" ]; then
         if [ "$LANG_CODE" = "en" ]; then
-            echo "[-] SECURITY ERROR: Neither sha256sum nor shasum tool found to verify checksum! Installation aborted."
+            echo "[+] vic is already installed and verified (Matches official SHA256)."
         else
-            echo "[-] LỖI BẢO MẬT: Không tìm thấy lệnh sha256sum hoặc shasum để đối soát mã băm! Hủy cài đặt."
+            echo "[+] vic đã được cài đặt và toàn vẹn (Khớp mã SHA256 chính thức)."
         fi
-        rm -f "$VIC_DIR/bin/vic"
-        exit 1
+        SKIP_DOWNLOAD=true
+    fi
+fi
+
+if [ "$SKIP_DOWNLOAD" = false ]; then
+    if [ "$LANG_CODE" = "en" ]; then
+        echo "[*] Trying pre-built binary ($BIN_NAME)..."
+    else
+        echo "[*] Đang thử tải bản build sẵn ($BIN_NAME)..."
     fi
 
-    if [ -z "$EXPECTED_SHA" ] || [ ${#EXPECTED_SHA} -ne 64 ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
-        if [ "$LANG_CODE" = "en" ]; then
-            echo "[-] SECURITY ERROR: SHA256 checksum mismatch! Expected: $EXPECTED_SHA, Got: $ACTUAL_SHA"
-        else
-            echo "[-] LỖI BẢO MẬT: Mã băm SHA256 không khớp! Mong đợi: $EXPECTED_SHA, Thực tế: $ACTUAL_SHA"
-        fi
-        rm -f "$VIC_DIR/bin/vic"
-        exit 1
-    fi
+    TEMP_VIC="$VIC_DIR/bin/vic.tmp.$$"
+    rm -f "$TEMP_VIC"
 
-    if [ "$LANG_CODE" = "en" ]; then
-        echo "[+] SHA256 checksum verified."
+    if curl -fsSL "$BIN_URL" -o "$TEMP_VIC" 2>/dev/null; then
+        ACTUAL_SHA=""
+        if command -v sha256sum >/dev/null 2>&1; then
+            ACTUAL_SHA=$(sha256sum "$TEMP_VIC" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+        elif command -v shasum >/dev/null 2>&1; then
+            ACTUAL_SHA=$(shasum -a 256 "$TEMP_VIC" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+        else
+            if [ "$LANG_CODE" = "en" ]; then
+                echo "[-] SECURITY ERROR: Neither sha256sum nor shasum tool found to verify checksum! Installation aborted."
+            else
+                echo "[-] LỖI BẢO MẬT: Không tìm thấy lệnh sha256sum hoặc shasum để đối soát mã băm! Hủy cài đặt."
+            fi
+            rm -f "$TEMP_VIC"
+            exit 1
+        fi
+
+        if [ -z "$EXPECTED_SHA" ] || [ ${#EXPECTED_SHA} -ne 64 ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+            if [ "$LANG_CODE" = "en" ]; then
+                echo "[-] SECURITY ERROR: SHA256 checksum mismatch! Expected: $EXPECTED_SHA, Got: $ACTUAL_SHA"
+            else
+                echo "[-] LỖI BẢO MẬT: Mã băm SHA256 không khớp! Mong đợi: $EXPECTED_SHA, Thực tế: $ACTUAL_SHA"
+            fi
+            rm -f "$TEMP_VIC"
+            exit 1
+        fi
+
+        if [ "$LANG_CODE" = "en" ]; then
+            echo "[+] SHA256 checksum verified."
+        else
+            echo "[+] Đã xác minh toàn vẹn SHA256 checksum."
+        fi
+
+        chmod +x "$TEMP_VIC"
+        mv -f "$TEMP_VIC" "$VIC_DIR/bin/vic"
+        curl -fsSL "https://vic-cli.phuongvy.xyz/module.md" -o "$VIC_DIR/module.md" 2>/dev/null || true
+        if [ "$LANG_CODE" = "en" ]; then
+            echo "[+] Pre-built binary downloaded and verified."
+        else
+            echo "[+] Đã tải và xác minh bản build sẵn thành công."
+        fi
     else
-        echo "[+] Đã xác minh toàn vẹn SHA256 checksum."
-    fi
-    chmod +x "$VIC_DIR/bin/vic"
-    curl -fsSL "https://vic-cli.phuongvy.xyz/module.md" -o "$VIC_DIR/module.md" 2>/dev/null || true
-    if [ "$LANG_CODE" = "en" ]; then
-        echo "[+] Pre-built binary downloaded and verified."
-    else
-        echo "[+] Đã tải và xác minh bản build sẵn thành công."
-    fi
-else
-    if [ "$LANG_CODE" = "en" ]; then
-        echo "[!] Pre-built release not found, falling back to building from source..."
-    else
-        echo "[!] Không tìm thấy bản phát hành có sẵn, chuyển sang build từ mã nguồn..."
-    fi
+        if [ "$LANG_CODE" = "en" ]; then
+            echo "[!] Pre-built release not found, falling back to building from source..."
+        else
+            echo "[!] Không tìm thấy bản phát hành có sẵn, chuyển sang build từ mã nguồn..."
+        fi
 
     if ! command -v cargo >/dev/null 2>&1; then
         if [ "$LANG_CODE" = "en" ]; then
@@ -126,6 +161,7 @@ else
     cp module.md "$VIC_DIR/module.md"
     chmod +x "$VIC_DIR/bin/vic"
     rm -rf "$TMP_DIR"
+    fi
 fi
 
 if [ "$MODE" = "download" ]; then

@@ -117,75 +117,107 @@ function Download-StringSafe($targetUrl) {
     return $null
 }
 
-if ($isVi) {
-    Write-Host "[*] Dang tai vic.exe cho Windows x86_64..." -ForegroundColor Cyan
-} else {
-    Write-Host "[*] Downloading vic.exe for Windows x86_64..." -ForegroundColor Cyan
-}
+$KnownReleaseSha = "f9205ae0ccb45b0bf4340ccbaf34c769a42cabb83a256df1f127ee3f71505339"
 
-# Download binary: Try latest release first, then tag v1.0.0
-$downloadOk = Download-FileSafe $PrimaryBinaryUrl $ExePath
-if (-not $downloadOk) {
-    $downloadOk = Download-FileSafe $TagBinaryUrl $ExePath
-}
-
-if (-not $downloadOk -or -not (Test-Path $ExePath) -or (Get-Item $ExePath).Length -lt 1000000) {
-    if ($isVi) {
-        Write-Host "[-] LOI: Khong the tai ban cai dat vic.exe tu GitHub Release." -ForegroundColor Red
-        Write-Host "    Vui long kiem tra ket noi Internet hoac thu lai sau." -ForegroundColor Red
-    } else {
-        Write-Host "[-] ERROR: Failed to download vic.exe from GitHub Release." -ForegroundColor Red
-        Write-Host "    Please check your Internet connection and try again." -ForegroundColor Red
-    }
-    Remove-Item $ExePath -Force -ErrorAction SilentlyContinue
-    $global:LASTEXITCODE = 1
-    return
-}
-
-# Download SHA256 checksum: Try latest release first, then tag v1.0.0
-$shaContent = Download-StringSafe $PrimaryShaUrl
+# Fetch expected SHA256 checksum (with cache-busting timestamp to prevent stale cache on repeated runs)
+$nowTs = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$shaContent = Download-StringSafe "$PrimaryShaUrl?t=$nowTs"
 if (-not $shaContent) {
-    $shaContent = Download-StringSafe $TagShaUrl
+    $shaContent = Download-StringSafe "$TagShaUrl?t=$nowTs"
 }
 
-if (-not $shaContent) {
-    if ($isVi) {
-        Write-Host "[-] LOI BAO MAT: Khong tim thay ma bam .sha256 de kiem tra toan ven! Huy cai dat." -ForegroundColor Red
-    } else {
-        Write-Host "[-] SECURITY ERROR: Missing .sha256 checksum file to verify integrity! Installation aborted." -ForegroundColor Red
-    }
-    Remove-Item $ExePath -Force -ErrorAction SilentlyContinue
-    $global:LASTEXITCODE = 1
-    return
-}
-
-# Extract 64-character hex checksum
 $expectedSha = ""
-if ($shaContent -match '([a-fA-F0-9]{64})') {
+if ($shaContent -and ($shaContent -match '([a-fA-F0-9]{64})')) {
     $expectedSha = $Matches[1].ToLower()
-}
-
-$actualSha = (Get-FileHash -Path $ExePath -Algorithm SHA256).Hash.ToLower()
-
-if ($expectedSha.Length -ne 64 -or $expectedSha -ne $actualSha) {
-    if ($isVi) {
-        Write-Host "[-] LOI BAO MAT: Ma SHA256 khong khop voi ban phat hanh chinh thuc!" -ForegroundColor Red
-        Write-Host "    Mong doi: $expectedSha" -ForegroundColor Red
-        Write-Host "    Thuc te : $actualSha" -ForegroundColor Red
-    } else {
-        Write-Host "[-] SECURITY ERROR: SHA256 checksum mismatch for vic.exe!" -ForegroundColor Red
-        Write-Host "    Expected: $expectedSha" -ForegroundColor Red
-        Write-Host "    Actual  : $actualSha" -ForegroundColor Red
-    }
-    Remove-Item $ExePath -Force -ErrorAction SilentlyContinue
-    $global:LASTEXITCODE = 1
-    return
-}
-
-if ($isVi) {
-    Write-Host "[+] Da xac minh toan ven SHA256 checksum thanh cong." -ForegroundColor Green
 } else {
-    Write-Host "[+] SHA256 checksum verified successfully." -ForegroundColor Green
+    $expectedSha = $KnownReleaseSha
+}
+
+# 1. Idempotency Check: If vic.exe is already installed and matches the official checksum, skip re-downloading!
+$skipDownload = $false
+if ((Test-Path $ExePath) -and (Get-Item $ExePath).Length -gt 1000000) {
+    $currentSha = (Get-FileHash -Path $ExePath -Algorithm SHA256).Hash.ToLower()
+    if ($currentSha -eq $expectedSha) {
+        if ($isVi) {
+            Write-Host "[+] vic da duoc cai dat va toan ven (Khop ma SHA256 chinh thuc)." -ForegroundColor Green
+        } else {
+            Write-Host "[+] vic is already installed and verified (Matches official SHA256)." -ForegroundColor Green
+        }
+        $skipDownload = $true
+    }
+}
+
+if (-not $skipDownload) {
+    if ($isVi) {
+        Write-Host "[*] Dang tai vic.exe cho Windows x86_64..." -ForegroundColor Cyan
+    } else {
+        Write-Host "[*] Downloading vic.exe for Windows x86_64..." -ForegroundColor Cyan
+    }
+
+    # 2. Download to a unique temporary file first (prevents corrupting existing binary or failing on locked files)
+    $TempExe = "$BinDir\vic.exe.tmp.$PID"
+    Remove-Item $TempExe -Force -ErrorAction SilentlyContinue
+
+    $downloadOk = Download-FileSafe $PrimaryBinaryUrl $TempExe
+    if (-not $downloadOk) {
+        $downloadOk = Download-FileSafe $TagBinaryUrl $TempExe
+    }
+
+    if (-not $downloadOk -or -not (Test-Path $TempExe) -or (Get-Item $TempExe).Length -lt 1000000) {
+        if ($isVi) {
+            Write-Host "[-] LOI: Khong the tai ban cai dat vic.exe tu GitHub Release." -ForegroundColor Red
+            Write-Host "    Vui long kiem tra ket noi Internet hoac thu lai sau." -ForegroundColor Red
+        } else {
+            Write-Host "[-] ERROR: Failed to download vic.exe from GitHub Release." -ForegroundColor Red
+            Write-Host "    Please check your Internet connection and try again." -ForegroundColor Red
+        }
+        Remove-Item $TempExe -Force -ErrorAction SilentlyContinue
+        $global:LASTEXITCODE = 1
+        return
+    }
+
+    # 3. Verify SHA256 checksum on the TEMPORARY file
+    $actualSha = (Get-FileHash -Path $TempExe -Algorithm SHA256).Hash.ToLower()
+
+    if ($expectedSha.Length -ne 64 -or $expectedSha -ne $actualSha) {
+        if ($isVi) {
+            Write-Host "[-] LOI BAO MAT: Ma SHA256 khong khop voi ban phat hanh chinh thuc!" -ForegroundColor Red
+            Write-Host "    Mong doi: $expectedSha" -ForegroundColor Red
+            Write-Host "    Thuc te : $actualSha" -ForegroundColor Red
+        } else {
+            Write-Host "[-] SECURITY ERROR: SHA256 checksum mismatch for vic.exe!" -ForegroundColor Red
+            Write-Host "    Expected: $expectedSha" -ForegroundColor Red
+            Write-Host "    Actual  : $actualSha" -ForegroundColor Red
+        }
+        # Only remove the temporary file, existing working binary is unharmed!
+        Remove-Item $TempExe -Force -ErrorAction SilentlyContinue
+        $global:LASTEXITCODE = 1
+        return
+    }
+
+    if ($isVi) {
+        Write-Host "[+] Da xac minh toan ven SHA256 checksum thanh cong." -ForegroundColor Green
+    } else {
+        Write-Host "[+] SHA256 checksum verified successfully." -ForegroundColor Green
+    }
+
+    # 4. Safe file swap: Stop running instances if any, then move
+    Get-Process -Name vic -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 100
+
+    $OldExe = "$BinDir\vic.exe.old"
+    Remove-Item $OldExe -Force -ErrorAction SilentlyContinue
+
+    if (Test-Path $ExePath) {
+        try {
+            Move-Item -Path $ExePath -Destination $OldExe -Force -ErrorAction Stop
+        } catch {
+            Remove-Item $ExePath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Move-Item -Path $TempExe -Destination $ExePath -Force
+    Remove-Item $OldExe -Force -ErrorAction SilentlyContinue
 }
 
 # Unblock file to remove Mark of the Web

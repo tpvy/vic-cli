@@ -386,7 +386,11 @@ fn is_module_installed(name: &str) -> bool {
     } else {
         name.to_string()
     };
-    vic_base_dir().join("modules").join(bin_name).exists()
+    let path = vic_base_dir().join("modules").join(bin_name);
+    match fs::metadata(path) {
+        Ok(m) => m.len() > 0,
+        Err(_) => false,
+    }
 }
 
 
@@ -801,16 +805,52 @@ fn cmd_install(args: &[String], lang: &str) -> String {
         };
 
         let dest = vic_base_dir().join("modules").join(&bin_name);
-        if fs::write(&dest, &bytes).is_ok() {
+        let tmp_dest = vic_base_dir().join("modules").join(format!("{}.tmp.{}", bin_name, std::process::id()));
+        let mut install_ok = false;
+        if fs::write(&tmp_dest, &bytes).is_ok() {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
+                let _ = fs::set_permissions(&tmp_dest, fs::Permissions::from_mode(0o755));
+                if fs::rename(&tmp_dest, &dest).is_ok() {
+                    install_ok = true;
+                } else if fs::copy(&tmp_dest, &dest).is_ok() {
+                    let _ = fs::remove_file(&tmp_dest);
+                    install_ok = true;
+                }
             }
+            #[cfg(windows)]
+            {
+                let old_dest = vic_base_dir().join("modules").join(format!("{}.old", bin_name));
+                let _ = fs::remove_file(&old_dest);
+                if dest.exists() {
+                    let _ = fs::rename(&dest, &old_dest);
+                }
+                if fs::rename(&tmp_dest, &dest).is_ok() {
+                    let _ = fs::remove_file(&old_dest);
+                    install_ok = true;
+                } else if fs::copy(&tmp_dest, &dest).is_ok() {
+                    let _ = fs::remove_file(&tmp_dest);
+                    let _ = fs::remove_file(&old_dest);
+                    install_ok = true;
+                }
+            }
+        }
+
+        if install_ok {
             let msg = if vi {
                 format!("[+] Đã cài đặt module '{}' thành công.", m.name)
             } else {
                 format!("[+] Module '{}' installed successfully.", m.name)
+            };
+            println!("{}", msg);
+            result_messages.push(msg);
+        } else {
+            let _ = fs::remove_file(&tmp_dest);
+            let msg = if vi {
+                format!("[-] Không thể ghi tệp module '{}' vào thư mục cài đặt.", m.name)
+            } else {
+                format!("[-] Failed to write module '{}' to install directory.", m.name)
             };
             println!("{}", msg);
             result_messages.push(msg);
@@ -1747,11 +1787,23 @@ fn cmd_upgrade(args: &[String], lang: &str) {
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = fs::set_permissions(&tmp_path, fs::Permissions::from_mode(0o755));
+        if fs::rename(&tmp_path, &dest_path).is_err() {
+            let _ = fs::copy(&tmp_path, &dest_path);
+            let _ = fs::remove_file(&tmp_path);
+        }
     }
-
-    if fs::rename(&tmp_path, &dest_path).is_err() {
-        let _ = fs::copy(&tmp_path, &dest_path);
-        let _ = fs::remove_file(&tmp_path);
+    #[cfg(windows)]
+    {
+        let old_path = vic_base_dir().join("bin").join(format!("{}.old", bin_name));
+        let _ = fs::remove_file(&old_path);
+        if dest_path.exists() {
+            let _ = fs::rename(&dest_path, &old_path);
+        }
+        if fs::rename(&tmp_path, &dest_path).is_err() {
+            let _ = fs::copy(&tmp_path, &dest_path);
+            let _ = fs::remove_file(&tmp_path);
+        }
+        let _ = fs::remove_file(&old_path);
     }
 
     let usr_bin = Path::new("/usr/local/bin/vic");

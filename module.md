@@ -125,8 +125,8 @@
 - linux_url: https://vic-cli.phuongvy.xyz/bin/linux/mouse
 - windows_url: https://vic-cli.phuongvy.xyz/bin/windows/mouse.exe
 - mac_url: https://vic-cli.phuongvy.xyz/bin/mac/mouse
-- sha256_linux: e8184085c6dc8f1b197d883386144fc528e0cf7da577e10176ceb5ff14c56405
-- sha256_windows: 
-- sha256_mac: 
+- sha256_linux: 15a5d71f25243ebd89c32382f47d30b50fac650a522eb6d7051ff836123e2f7c
+- sha256_windows: 5e4b95af926a33967c8305b8d89e61375a263f3c5b1e54af1bb609358ed1d52e
+- sha256_mac: 9ee0320629264168fd6115502e701189ee2821e7329215ecbc406cf07a77c060
 
 
