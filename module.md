@@ -93,9 +93,9 @@
 - linux_url: https://vic-cli.phuongvy.xyz/bin/linux/media
 - windows_url: https://vic-cli.phuongvy.xyz/bin/windows/media.exe
 - mac_url: https://vic-cli.phuongvy.xyz/bin/mac/media
-- sha256_linux: 3b7b675c79b3b76865724829cf1808bfbb11d77c44c53766dc5bcd4083b3049f
-- sha256_windows: 1fe4aa19b042a4c8a81aa39ecba77506f4c15687dc315e7d579ce0c7a078782d
-- sha256_mac: b62f9d39514f22bc9839703c12763516d39c91a8c0f9d23c6a31367c4428900c
+- sha256_linux: 2b779806b26df91181d31c18f02d70b5da44c41028ea62619d01bdcc5fe36725
+- sha256_windows: fc52ba05143f8efe0af94db09a2bbb7b88577006d24ae176ef53400bc5434832
+- sha256_mac: 88ac1d7e8744b97e8230a9634a5dd70ce3c649e8c462f27ec3e06b018677a12c
 
 ---
 ## [11] top
@@ -109,9 +109,9 @@
 - linux_url: https://vic-cli.phuongvy.xyz/bin/linux/top
 - windows_url: https://vic-cli.phuongvy.xyz/bin/windows/top.exe
 - mac_url: https://vic-cli.phuongvy.xyz/bin/mac/top
-- sha256_linux: ce05aff095bed23823e4545739ec23e444b2635eb3c5014f25f74312d0dcb05b
-- sha256_windows: 4aafa77184cd726ceb508cff7e8bb977dbd602c5371bce2b46898fbc234720b9
-- sha256_mac: a121a94e51a4b9c1e20e2032d553baa814826fb5deab100024b50cb430e85428
+- sha256_linux: 8d172fa2a480965a65a6be484b9f9e2df182b61b6833d430c28c0f608d1e43f1
+- sha256_windows: 38a697c0f6ef849fdb46ddc78ac258d808cd45d8e2aaa7dce2169edf7b24c26b
+- sha256_mac: 4317f965c5863e41b7ff625fabf1681bfea3468577e51fa97056acee2262ef14
 
 ---
 ## [12] mouse
@@ -126,7 +126,7 @@
 - windows_url: https://vic-cli.phuongvy.xyz/bin/windows/mouse.exe
 - mac_url: https://vic-cli.phuongvy.xyz/bin/mac/mouse
 - sha256_linux: 15a5d71f25243ebd89c32382f47d30b50fac650a522eb6d7051ff836123e2f7c
-- sha256_windows: 5e4b95af926a33967c8305b8d89e61375a263f3c5b1e54af1bb609358ed1d52e
+- sha256_windows: 11045ce787839e0ec534fc2d8a405a00370413523bd7c9f03b6a612155f80b43
 - sha256_mac: 9ee0320629264168fd6115502e701189ee2821e7329215ecbc406cf07a77c060
 
 

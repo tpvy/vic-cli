@@ -272,12 +272,13 @@ fn cmd_password(args: &[String], lang: &str) {
 }
 
 
-const REGISTRY_URL: &str = "https://fastly.jsdelivr.net/gh/tpvy/vic-cli@main/module.md";
-const REGISTRY_FALLBACK_URL: &str = "https://vic-cli.phuongvy.xyz/module.md";
+const REGISTRY_URL: &str = "https://vic-cli.phuongvy.xyz/module.md";
+const REGISTRY_FALLBACK_URL: &str = "https://raw.githubusercontent.com/tpvy/vic-cli/main/module.md";
 
 fn sync_remote_md(verbose: bool, lang: &str) {
     let agent = ureq::AgentBuilder::new()
-        .timeout(Duration::from_secs(3))
+        .timeout(Duration::from_secs(5))
+        .redirects(5)
         .build();
     let cache_buster = format!("{}?t={}", REGISTRY_URL, Local::now().timestamp());
     let fetch_result = agent.get(&cache_buster).call().or_else(|_| agent.get(REGISTRY_FALLBACK_URL).call());
@@ -757,15 +758,22 @@ fn cmd_install(args: &[String], lang: &str) -> String {
             }
 
             println!("[*] Downloading '{}'...", m.name);
-            let Ok(resp) = ureq::get(url).timeout(Duration::from_secs(30)).call() else {
-                let msg = if vi {
-                    format!("[-] Tải thất bại từ: {}", url)
-                } else {
-                    format!("[-] Download failed from: {}", url)
-                };
-                println!("{}", msg);
-                result_messages.push(msg);
-                continue;
+            let agent = ureq::AgentBuilder::new()
+                .timeout(Duration::from_secs(60))
+                .redirects(10)
+                .build();
+            let resp = match agent.get(url).call() {
+                Ok(r) => r,
+                Err(e) => {
+                    let msg = if vi {
+                        format!("[-] Tải thất bại từ: {} ({})", url, e)
+                    } else {
+                        format!("[-] Download failed from: {} ({})", url, e)
+                    };
+                    println!("{}", msg);
+                    result_messages.push(msg);
+                    continue;
+                }
             };
 
             let mut b = Vec::new();
