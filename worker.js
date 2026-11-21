@@ -643,6 +643,7 @@ function renderLandingHtml() {
     <div>Tác giả: <a href="${AUTHOR_GITHUB}" target="_blank"><strong>tpvy</strong></a> &bull; Giấy phép MIT</div>
     <div class="footer-links">
       <a href="${MAIN_SITE}">phuongvy.xyz</a>
+      <a href="https://vyyxcrypt.pages.dev/" target="_blank">VyyxCrypt</a>
       <a href="${OFFICIAL_REPO}" target="_blank">GitHub vic-cli</a>
       <a href="${TICKET_URL}">Gửi Ticket</a>
       <a href="/modules">Kho Module</a>
@@ -1315,6 +1316,7 @@ function renderModulesHubHtml(modules) {
     <div>Tác giả: <a href="${AUTHOR_GITHUB}" target="_blank"><strong>tpvy</strong></a> &bull; Giấy phép MIT</div>
     <div class="footer-links">
       <a href="${MAIN_SITE}">phuongvy.xyz</a>
+      <a href="https://vyyxcrypt.pages.dev/" target="_blank">VyyxCrypt</a>
       <a href="${OFFICIAL_REPO}" target="_blank">GitHub vic-cli</a>
       <a href="${TICKET_URL}">Gửi Ticket</a>
       <a href="/">Trang Chủ CLI</a>
